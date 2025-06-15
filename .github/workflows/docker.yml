@@ -1,6 +1,10 @@
-name: Docker Build and Test
+name: Docker CI/CD pipeline
 
-on: [push]
+on: 
+  push: 
+    branches: ["port-scanner"]
+  pull_request: 
+    branches: ["main"]
 
 jobs:
   build-and-test:
@@ -10,10 +14,44 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build Docker image
-      run: docker build -t port-scanner .
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
 
-    - name: Test the scanner
+    - name: Build Docker image
+      run: \
+        docker build -t port-scanner .
+        echo "IMAGE=port-scanner" >> $GITHUB_ENV
+
+    -name: Run unit tests
+    run: |
+      docker run --rm $IMAGE python -m pytest tests/ 
+      
+    - name: Vulnerability scan
+      uses: anchore/scan-action@v3
+      with: 
+        image: $IMAGE
+        fall-build: true
+
+    - name: Deploy to GHCR
+      if: github.ref == 'refs/heads/port-scanner'
       run: |
-        docker run --rm port-scanner python port_scanner.py --target 127.0.0.1
-        echo "Tests passed!"
+        echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.acter }} --password-stdin
+      docker tag $IMAGE ghcr.io/${{ github.repoistory_owner }}/port-scanner:latest
+      docker push ghcr.io/${{ github.repository_owner }}/port-scanner:latest
+
+    - name: Notify on failure
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        scripts: |
+          github.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: " build failled!!! check the logs."
+          })
+
+
