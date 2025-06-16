@@ -27,7 +27,7 @@ jobs:
 
     - name: Run unit tests
       run: |
-      docker run --rm $IMAGE python -m pytest tests/ 
+        docker run --rm $IMAGE python -m pytest tests/ 
       
     - name: Vulnerability scan
       uses: anchore/scan-action@v3
