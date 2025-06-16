@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  build-and-test:
+  build-test-scan:
     runs-on: ubuntu-latest
     
     steps:
@@ -25,8 +25,8 @@ jobs:
         docker build -t port-scanner .
         echo "IMAGE=port-scanner" >> $GITHUB_ENV
 
-    -name: Run unit tests
-    run: |
+    - name: Run unit tests
+      run: |
       docker run --rm $IMAGE python -m pytest tests/ 
       
     - name: Vulnerability scan
