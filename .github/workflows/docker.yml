@@ -39,8 +39,8 @@ jobs:
       if: github.ref == 'refs/heads/port-scanner'
       run: |
         echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.acter }} --password-stdin
-      docker tag $IMAGE ghcr.io/${{ github.repoistory_owner }}/port-scanner:latest
-      docker push ghcr.io/${{ github.repository_owner }}/port-scanner:latest
+      docker tag $IMAGE ghcr.io/${{ github.repoistory_owner }}/portscanner:latest
+      docker push ghcr.io/${{ github.repository_owner }}/portscanner:latest
 
     - name: Notify on failure
       if: failure()
