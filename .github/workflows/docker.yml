@@ -2,35 +2,34 @@ name: Docker CI/CD Pipeline
 
 on:
   push:
-    branches: [ "port-scanner" ]  # Trigger on pushes to port-scanner branch
+    branches: [ "port-scanner" ]
   pull_request:
-    branches: [ "main" ]          # Trigger on PRs to main branch
+    branches: [ "main" ]
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write  # Required for GHCR push
+      packages: write
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Login to GHCR
+      env:
+        GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}  # Explicitly set as env var
       run: |
-        echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
     - name: Build Docker image
       run: |
-        docker build -t portscanner .
-        echo "IMAGE=portscanner" >> $GITHUB_ENV
+        docker build -t ghcr.io/${{ github.repository_owner }}/portscanner:latest .
+        echo "IMAGE=ghcr.io/${{ github.repository_owner }}/portscanner:latest" >> $GITHUB_ENV
 
     - name: Run tests
       run: |
         docker run --rm $IMAGE python -m pytest tests/ || echo "Tests failed but continuing"
 
     - name: Push to GHCR
-      run: |
-        docker tag $IMAGE ghcr.io/${{ github.repository_owner }}/portscanner:latest
-        docker push ghcr.io/${{ github.repository_owner }}/portscanner:latest
+      run: docker push $IMAGE
