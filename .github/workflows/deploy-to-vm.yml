@@ -20,7 +20,7 @@ jobs:
         username: ${{ secrets.AZURE_VM_USER }}
         key: ${{ secrets.AZURE_VM_SSH_KEY }}
         script: |
-          cd linux_practice
+          cd Linux_practice
           git pull origin main
           pkill -f "python3 -m http.server"
           nohup python3 -m http.server 8080 &
