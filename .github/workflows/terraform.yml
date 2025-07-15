@@ -22,7 +22,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # OIDC Login (no secrets!)
+    # OIDC Login
     - uses: azure/login@v1
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}  # From variables
