@@ -12,7 +12,11 @@ provider "azurerm" {
   skip_provider_registration= true
 }
 
+# Update main.tf with unique naming
 resource "azurerm_resource_group" "example" {
-  name     = "example-resources"
-  location = "East US"
+  name     = "rg-linuxpractice-${formatdate("YYYYMMDD", timestamp())}"
+  location = "eastus"
+  tags = {
+    ManagedBy = "Terraform"
+  }
 }
