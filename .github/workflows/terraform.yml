@@ -1,17 +1,16 @@
-name: Terraform OIDC Deployment
+name: Terraform CI/CD
+
 on:
   push:
-    branches: ["terraform-deploy"]
-  pull_request:
-    branches: ["terraform-deploy"]
+    branches: [terraform-deploy]
 
 permissions:
   id-token: write  # Critical for OIDC
   contents: read
 
 env:
-  ARM_USE_OIDC: true
-  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_USE_OIDC: true  # Forces Terraform to use OIDC
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}  # Using VARIABLES not secrets
   ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -23,10 +22,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # OIDC Authentication
+    # OIDC Login (no secrets!)
     - uses: azure/login@v1
       with:
-        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        client-id: ${{ vars.AZURE_CLIENT_ID }}  # From variables
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -35,6 +34,4 @@ jobs:
     - run: terraform init
     - run: terraform validate
     - run: terraform plan -out=tfplan
-
     - run: terraform apply -auto-approve tfplan
-      if: github.ref == 'refs/heads/terraform-deploy'
