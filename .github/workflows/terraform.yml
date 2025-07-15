@@ -1,0 +1,40 @@
+name: Terraform OIDC Deployment
+on:
+  push:
+    branches: ["terraform-deploy"]
+  pull_request:
+    branches: ["terraform-deploy"]
+
+permissions:
+  id-token: write  # Critical for OIDC
+  contents: read
+
+env:
+  ARM_USE_OIDC: true
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # OIDC Authentication
+    - uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - uses: hashicorp/setup-terraform@v3
+
+    - run: terraform init
+    - run: terraform validate
+    - run: terraform plan -out=tfplan
+
+    - run: terraform apply -auto-approve tfplan
+      if: github.ref == 'refs/heads/terraform-deploy'
