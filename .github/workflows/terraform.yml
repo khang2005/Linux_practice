@@ -3,6 +3,8 @@ name: Terraform CI/CD
 on:
   push:
     branches: [terraform-deploy]
+  pull_request:
+    brancehs: [terraform-deploy]
 
 permissions:
   id-token: write  # Critical for OIDC
@@ -28,10 +30,27 @@ jobs:
         client-id: ${{ vars.AZURE_CLIENT_ID }}  # From variables
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        enable-AzPSSession: false
 
     - uses: hashicorp/setup-terraform@v3
-
-    - run: terraform init
-    - run: terraform validate
+      with:
+        terraform-version: 1.5.0
+    - run: terraform init -backend-config= "storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}"
+    - name: validate and format
+        run: |
+          terraform validate
+          terraform fmt -check -recursive
+    # plan (output saved as artifact)
     - run: terraform plan -out=tfplan
+      if: github.event_name == 'push'
+    #apply with auto-approval only for main-branch
     - run: terraform apply -auto-approve tfplan
+      if: github.ref == 'ref/heads/terraform-deploy' && github.event_name == 'push'
+
+    #upload plan artifact for review
+    - uses: actions/upload-artifact@v3
+      if: github.event_name == 'pull_request'
+      with:
+        name: tfplan
+        path: tfplan
+    
