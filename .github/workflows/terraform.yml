@@ -35,28 +35,39 @@ jobs:
     - uses: hashicorp/setup-terraform@v3
       with:
         terraform-version: 1.5.0
+
+    # Initialize with backend config
     - name: Initialize Terraform
       run: |
         terraform init \
+          -backend-config="resource_group_name=tfstate-rg" \
           -backend-config="storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}" \
           -backend-config="container_name=tfstate" \
           -backend-config="key=prod.tfstate"
-   - name: Validate and format
-      run: |
-        terraform validate
-        terraform fmt -check -recursive
 
-    - name: Plan
+    # Validation
+    - name: Validate configuration
+      run: terraform validate
+
+    # Format check
+    - name: Check formatting
+      run: terraform fmt -check -recursive
+
+    # Plan
+    - name: Create execution plan
       run: terraform plan -out=tfplan
       if: github.event_name == 'push'
 
-    - name: Apply
+    # Apply
+    - name: Apply changes
       run: terraform apply -auto-approve tfplan
       if: github.ref == 'refs/heads/terraform-deploy' && github.event_name == 'push'
 
+    # Upload plan for PRs
     - name: Upload plan artifact
-      uses: actions/upload-artifact@v4  # ← Updated to v4
+      uses: actions/upload-artifact@v4
       if: github.event_name == 'pull_request'
       with:
         name: tfplan
         path: tfplan
+        retention-days: 1
