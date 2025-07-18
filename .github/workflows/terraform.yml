@@ -39,6 +39,7 @@ jobs:
     # Initialize with backend config
     - name: Initialize Terraform
       run: |
+        rm -rf .terraform .terraform.lock.hcl
         terraform init \
           -backend-config="resource_group_name=tfstate-rg" \
           -backend-config="storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}" \
