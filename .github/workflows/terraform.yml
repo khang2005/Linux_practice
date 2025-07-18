@@ -35,10 +35,13 @@ jobs:
     - uses: hashicorp/setup-terraform@v3
       with:
         terraform-version: 1.5.0
-
-    - run: terraform init -backend-config= "storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}"
-
-    - name: Validate and format
+    - name: Initialize Terraform
+      run: |
+        terraform init \
+          -backend-config="storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}" \
+          -backend-config="container_name=tfstate" \
+          -backend-config="key=prod.tfstate"
+   - name: Validate and format
       run: |
         terraform validate
         terraform fmt -check -recursive
