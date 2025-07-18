@@ -4,7 +4,7 @@ on:
   push:
     branches: [terraform-deploy]
   pull_request:
-    branches: [terraform-deploy]  # Fixed typo in "branches"
+    branches: [terraform-deploy]
 
 permissions:
   id-token: write
@@ -49,11 +49,11 @@ jobs:
 
     - name: Apply
       run: terraform apply -auto-approve tfplan
-      if: github.ref == 'refs/heads/terraform-deploy' && github.event_name == 'push'  # Fixed "ref/heads" to "refs/heads"
+      if: github.ref == 'refs/heads/terraform-deploy' && github.event_name == 'push'
 
     - name: Upload plan artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4  # ← Updated to v4
       if: github.event_name == 'pull_request'
       with:
         name: tfplan
-        path: tfplan   
+        path: tfplan
