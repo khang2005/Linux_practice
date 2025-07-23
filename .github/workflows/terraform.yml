@@ -49,12 +49,20 @@ jobs:
 
     # Format check
     - name: Check formatting
+      id: fmt
       run: |
-        if [ $(terraform fmt -recursive -check | wc -l) -gt 0 ]; then
-          echo "::error::Some files need formatting. Run 'terraform fmt -recursive' locally."
+        # First try to format (will show diff if check fails)
+        echo "Checking Terraform formatting..."
+        terraform fmt -recursive -check -diff || true
+    
+        # Now do the actual check
+        if [ $(terraform fmt -recursive -check | wc -l) -ne 0 ]; then
+          echo "::error::Some files need formatting"
+          echo "Run 'terraform fmt -recursive' locally to fix"
           exit 1
-        fi
-
+        else
+          echo "All files properly formatted"
+        fi    
     # Validate
     - name: Validate configuration
       run: terraform validate
