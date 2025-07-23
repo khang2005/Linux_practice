@@ -1,22 +1,16 @@
-terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
-    }
-  }
+# Resource Group
+resource "azurerm_resource_group" "main" {
+  name     = "rg-${var.environment}-main"
+  location = var.location
+  tags     = var.tags
 }
 
-provider "azurerm" {
-  features {}
-  skip_provider_registration= true
-}
+# Network Module
+module "network" {
+  source = "./modules/network"
 
-# Update main.tf with unique naming
-resource "azurerm_resource_group" "example" {
-  name     = "rg-linuxpractice-${formatdate("YYYYMMDD", timestamp())}"
-  location = "eastus"
-  tags = {
-    ManagedBy = "Terraform"
-  }
+  environment        = var.environment
+  location          = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  address_space     = "10.${index(["dev", "stage", "prod"], var.environment)}.0.0/16"
 }

@@ -51,7 +51,13 @@ jobs:
 
     # Format check
     - name: Check formatting
-      run: terraform fmt -check -recursive
+      run: |
+        terraform fmt -recursive -check -write=false -diff
+
+      if [$(terraform fmt -recursive -check | wc -l) -gt 0]; then 
+        echo "::error::Some files need formatting. Run 'terraform fmt -recursive' locally."
+        exit 1
+      fi
 
     # Plan
     - name: Create execution plan

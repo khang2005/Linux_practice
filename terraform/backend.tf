@@ -1,9 +1,8 @@
-# backend.tf
 terraform {
   backend "azurerm" {
-    resource_group_name  = "tfstate-rg"
-    storage_account_name = "tfstatee224b304"  # Manual name using part of your sub ID
-    container_name       = "tfstate"
-    key                  = "prod.terraform.tfstate"
+    resource_group_name  = "tfstate-rg"           # Must be hardcoded
+    storage_account_name = "tfstatedev55768"           # Must be hardcoded
+    container_name       = "tfstate"              # Must be hardcoded
+    key                  = "dev.terraform.tfstate" # Must be hardcoded
   }
 }
