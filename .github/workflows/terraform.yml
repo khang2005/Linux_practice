@@ -35,6 +35,7 @@ jobs:
     - uses: hashicorp/setup-terraform@v3
       with:
         terraform-version: 1.5.0
+        terraform-workspace: production
 
     # Initialize with backend config
     - name: Initialize Terraform
@@ -43,31 +44,30 @@ jobs:
         terraform init \
           -backend-config="resource_group_name=tfstate-rg" \
           -backend-config="storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}" \
+          -backend-config="container_name=tfstate" \
           -backend-config="key=prod.tfstate"
-
-    # Validation
-    - name: Validate configuration
-      run: terraform validate
 
     # Format check
     - name: Check formatting
       run: |
-        terraform fmt -recursive -check -write=false -diff
+        if [ $(terraform fmt -recursive -check | wc -l) -gt 0 ]; then
+          echo "::error::Some files need formatting. Run 'terraform fmt -recursive' locally."
+          exit 1
+        fi
 
-      if [$(terraform fmt -recursive -check | wc -l) -gt 0]; then 
-        echo "::error::Some files need formatting. Run 'terraform fmt -recursive' locally."
-        exit 1
-      fi
+    # Validate
+    - name: Validate configuration
+      run: terraform validate
 
     # Plan
     - name: Create execution plan
-      run: terraform plan -out=tfplan
+      run: terraform plan -out=tfplan -input=false
       if: github.event_name == 'push'
 
-    # Apply
-    - name: Apply changes
-      run: terraform apply -auto-approve tfplan
-      if: github.ref == 'refs/heads/terraform-deploy' && github.event_name == 'push'
+    # PR Plan
+    - name: Create PR plan
+      run: terraform plan -out=tfplan -input=false
+      if: github.event_name == 'pull_request'
 
     # Upload plan for PRs
     - name: Upload plan artifact
@@ -77,3 +77,8 @@ jobs:
         name: tfplan
         path: tfplan
         retention-days: 1
+
+    # Apply
+    - name: Apply changes
+      run: terraform apply -auto-approve -input=false tfplan
+      if: github.ref == 'refs/heads/terraform-deploy' && github.event_name == 'push'
