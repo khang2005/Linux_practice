@@ -69,4 +69,6 @@ jobs:
           -backend-config="container_name=tfstate"
 
     - name: Terraform Apply
+      env:
+        TF_VAR_environment: prod  # <-- ONLY ADD THIS LINE
       run: terraform apply -auto-approve -input=false
