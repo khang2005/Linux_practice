@@ -15,78 +15,63 @@ env:
   ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_environment: prod
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: production
+    defaults:
+      run:
+        working-directory: ./terraform  # All commands run here
 
     steps:
     - uses: actions/checkout@v4
 
-    # OIDC Login
     - uses: azure/login@v1
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-        enable-AzPSSession: false
 
     - uses: hashicorp/setup-terraform@v3
-      with:
-        terraform-version: 1.5.0
-        terraform-workspace: production
 
-    # Initialize with backend config
-    - name: Initialize Terraform
+    - name: Initialize
       run: |
-        rm -rf .terraform .terraform.lock.hcl
+        rm -rf .terraform*
         terraform init \
           -backend-config="resource_group_name=tfstate-rg" \
           -backend-config="storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}" \
           -backend-config="container_name=tfstate" \
           -backend-config="key=prod.tfstate"
 
-    # Format check
-    - name: Check formatting
-      id: fmt
+    - name: Check Formatting
       run: |
-        # First try to format (will show diff if check fails)
-        echo "Checking Terraform formatting..."
-        terraform fmt -recursive -check -diff || true
-    
-        # Now do the actual check
-        if [ $(terraform fmt -recursive -check | wc -l) -ne 0 ]; then
-          echo "::error::Some files need formatting"
-          echo "Run 'terraform fmt -recursive' locally to fix"
+        if [ $(terraform fmt -recursive -check | wc -l) -gt 0 ]; then
+          echo "::error::Formatting issues found"
+          terraform fmt -recursive -check -diff
           exit 1
-        else
-          echo "All files properly formatted"
-        fi    
-    # Validate
-    - name: Validate configuration
+        fi
+
+    - name: Validate
       run: terraform validate
 
-    # Plan
-    - name: Create execution plan
+    - name: Plan
       run: terraform plan -out=tfplan -input=false
       if: github.event_name == 'push'
 
-    # PR Plan
-    - name: Create PR plan
+    - name: PR Plan
       run: terraform plan -out=tfplan -input=false
       if: github.event_name == 'pull_request'
 
-    # Upload plan for PRs
-    - name: Upload plan artifact
+    - name: Upload Plan
       uses: actions/upload-artifact@v4
       if: github.event_name == 'pull_request'
       with:
         name: tfplan
-        path: tfplan
+        path: terraform/tfplan  # Note the path
         retention-days: 1
 
-    # Apply
-    - name: Apply changes
+    - name: Apply
       run: terraform apply -auto-approve -input=false tfplan
       if: github.ref == 'refs/heads/terraform-deploy' && github.event_name == 'push'
