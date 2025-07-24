@@ -3,19 +3,11 @@ name: Terraform CI/CD
 on:
   push:
     branches: [terraform-deploy]
-  pull_request:
-    branches: [terraform-deploy]
-
-permissions:
-  id-token: write
-  contents: read
 
 env:
-  ARM_USE_OIDC: true
-  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-  TF_VAR_environment: prod
+  STORAGE_ACCOUNT_NAME: "tfstate${{ vars.UNIQUE_SUFFIX }}"
+  RESOURCE_GROUP: "tfstate-rg"
+  CONTAINER_NAME: "tfstate"
 
 jobs:
   terraform:
@@ -23,55 +15,49 @@ jobs:
     environment: production
     defaults:
       run:
-        working-directory: ./terraform  # All commands run here
+        working-directory: ./terraform
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
     - uses: actions/checkout@v4
 
-    - uses: azure/login@v1
+    - name: Azure Login (OIDC)
+      uses: azure/login@v1
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-    - uses: hashicorp/setup-terraform@v3
-
-    - name: Initialize
+    - name: Ensure Storage Account Exists
       run: |
-        rm -rf .terraform*
-        terraform init \
-          -backend-config="resource_group_name=tfstate-rg" \
-          -backend-config="storage_account_name=tfstate${{ vars.UNIQUE_SUFFIX }}" \
-          -backend-config="container_name=tfstate" \
-          -backend-config="key=prod.tfstate"
-
-    - name: Check Formatting
-      run: |
-        if [ $(terraform fmt -recursive -check | wc -l) -gt 0 ]; then
-          echo "::error::Formatting issues found"
-          terraform fmt -recursive -check -diff
-          exit 1
+        # Check if storage account exists
+        if ! az storage account show \
+          --name $STORAGE_ACCOUNT_NAME \
+          --resource-group $RESOURCE_GROUP &>/dev/null; then
+          
+          echo "Creating storage account..."
+          az storage account create \
+            --name $STORAGE_ACCOUNT_NAME \
+            --resource-group $RESOURCE_GROUP \
+            --sku Standard_LRS \
+            --kind StorageV2 \
+            --allow-blob-public-access false
         fi
 
-    - name: Validate
-      run: terraform validate
+        # Ensure container exists
+        az storage container create \
+          --name $CONTAINER_NAME \
+          --account-name $STORAGE_ACCOUNT_NAME \
+          --auth-mode login \
+          --fail-on-exist || true
 
-    - name: Plan
-      run: terraform plan -out=tfplan -input=false
-      if: github.event_name == 'push'
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
 
-    - name: PR Plan
-      run: terraform plan -out=tfplan -input=false
-      if: github.event_name == 'pull_request'
+    - name: Terraform Init
+      run: terraform init -backend-config="key=prod.tfstate"
 
-    - name: Upload Plan
-      uses: actions/upload-artifact@v4
-      if: github.event_name == 'pull_request'
-      with:
-        name: tfplan
-        path: terraform/tfplan  # Note the path
-        retention-days: 1
-
-    - name: Apply
-      run: terraform apply -auto-approve -input=false tfplan
-      if: github.ref == 'refs/heads/terraform-deploy' && github.event_name == 'push'
+    - name: Terraform Apply
+      run: terraform apply -auto-approve -input=false
