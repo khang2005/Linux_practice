@@ -5,7 +5,7 @@ on:
     branches: [terraform-deploy]
   pull_request: 
     branches: [terraform-deploy]
-  workflow_dispatch:    # <-- Add this new trigger
+  workflow_dispatch:
     inputs:
       destroy:
         description: 'Type "confirm" to destroy resources'
@@ -78,30 +78,31 @@ jobs:
 
     - name: Terraform Apply
       env:
-        TF_VAR_environment: prod  # <-- ONLY ADD THIS LINE
+        TF_VAR_environment: prod
       run: terraform apply -auto-approve -input=false
-      
-      destroy:
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.destroy == 'confirm'
-      needs: terraform  # Wait for main job to complete
-      runs-on: ubuntu-latest
-      environment: production
-      steps:
-        - uses: actions/checkout@v4
-        - uses: azure/login@v1
-          with:
-            client-id: ${{ vars.AZURE_CLIENT_ID }}
-            tenant-id: ${{ vars.AZURE_TENANT_ID }}
-            subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-        - uses: hashicorp/setup-terraform@v3
 
-        - name: Destroy Infrastructure
-          run: |
-            terraform init -reconfigure
-            terraform destroy -auto-approve -input=false
-
-            # Optional: Delete state storage
-            az storage account delete \
-              --name ${{ env.STORAGE_ACCOUNT_NAME }} \
-              --resource-group tfstate-rg \
-              --yes || echo "Storage account already deleted"
+  destroy:  # <-- Properly formatted as separate job
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.destroy == 'confirm'
+    needs: terraform
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v1
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: hashicorp/setup-terraform@v3
+      - name: Destroy Infrastructure
+        run: |
+          terraform init -reconfigure
+          terraform destroy -auto-approve -input=false
+          # Optional: Delete state storage
+          az storage account delete \
+            --name ${{ env.STORAGE_ACCOUNT_NAME }} \
+            --resource-group tfstate-rg \
+            --yes || echo "Storage account already deleted"
