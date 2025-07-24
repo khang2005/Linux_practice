@@ -32,32 +32,41 @@ jobs:
 
     - name: Ensure Storage Account Exists
       run: |
-        # Check if storage account exists
+        # Generate truly unique name
+        UNIQUE_NAME="tfstate$(date +%s | sha256sum | head -c 8)"
+        
+        # Check/Create storage account
         if ! az storage account show \
-          --name $STORAGE_ACCOUNT_NAME \
-          --resource-group $RESOURCE_GROUP &>/dev/null; then
+          --name $UNIQUE_NAME \
+          --resource-group tfstate-rg &>/dev/null; then
           
-          echo "Creating storage account..."
+          echo "Creating storage account $UNIQUE_NAME"
           az storage account create \
-            --name $STORAGE_ACCOUNT_NAME \
-            --resource-group $RESOURCE_GROUP \
-            --sku Standard_LRS \
-            --kind StorageV2 \
-            --allow-blob-public-access false
+            --name $UNIQUE_NAME \
+            --resource-group tfstate-rg \
+            --sku Standard_LRS
+        else
+          echo "Using existing storage account $UNIQUE_NAME"
         fi
 
-        # Ensure container exists
+        # Create container
         az storage container create \
-          --name $CONTAINER_NAME \
-          --account-name $STORAGE_ACCOUNT_NAME \
-          --auth-mode login \
-          --fail-on-exist || true
+          --name tfstate \
+          --account-name $UNIQUE_NAME \
+          --auth-mode login || echo "Container already exists"
+
+        # Set output for Terraform init
+        echo "STORAGE_ACCOUNT_NAME=$UNIQUE_NAME" >> $GITHUB_ENV
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
 
     - name: Terraform Init
-      run: terraform init -backend-config="key=prod.tfstate"
+      run: |
+        terraform init \
+          -backend-config="resource_group_name=tfstate-rg" \
+          -backend-config="storage_account_name=${{ env.STORAGE_ACCOUNT_NAME }}" \
+          -backend-config="container_name=tfstate"
 
     - name: Terraform Apply
       run: terraform apply -auto-approve -input=false
