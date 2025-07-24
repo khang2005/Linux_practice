@@ -9,8 +9,8 @@ resource "azurerm_resource_group" "main" {
 module "network" {
   source = "./modules/network"
 
-  environment        = var.environment
-  location          = azurerm_resource_group.main.location
+  environment         = var.environment
+  location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  address_space     = "10.${index(["dev", "stage", "prod"], var.environment)}.0.0/16"
+  address_space       = "10.${index(["dev", "stage", "prod"], var.environment)}.0.0/16"
 }
